@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import settings
+from app.rag_service import service
+from app.schemas import IngestRequest, QueryRequest, QueryResponse
+
+app = FastAPI(
+    title=settings.app_name,
+    version="1.0.0",
+    description="Agent-friendly RAG toolkit for use with Claude, Gemini, Codex, and custom agents.",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "service": settings.app_name}
+
+
+@app.post(f"{settings.api_prefix}/ingest")
+def ingest(request: IngestRequest) -> dict[str, object]:
+    result = service.ingest(request.paths, clear_existing=request.clear_existing)
+    return result
+
+
+@app.post(f"{settings.api_prefix}/query", response_model=QueryResponse)
+def query(request: QueryRequest) -> QueryResponse:
+    return service.query(request.question, top_k=request.top_k)
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"message": "Agentic RAG Toolkit is running."}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("app.main:app", reload=True)
